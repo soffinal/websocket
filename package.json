@@ -1,0 +1,61 @@
+{
+  "name": "@soffinal/websocket",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "A TypeScript WebSocket client with automatic reconnection, message queuing, and stream-based event handling",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dis/index.d.ts"
+    }
+  },
+  "keywords": [
+    "websocket",
+    "typescript",
+    "stream",
+    "reconnection",
+    "queue",
+    "bun",
+    "node",
+    "deno",
+    "browser"
+  ],
+  "author": {
+    "name": "soffinal",
+    "email": "smari.sofiane@gmail.com",
+    "url": "https://github.com/soffinal"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soffinal/websocket.git"
+  },
+  "homepage": "https://github.com/soffinal/websocket#readme",
+  "bugs": {
+    "url": "https://github.com/soffinal/websocket/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@soffinal/stream": "^0.2.1"
+  }
+}
