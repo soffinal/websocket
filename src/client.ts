@@ -1,69 +1,6 @@
 import { filter, map, Stream } from "@soffinal/stream";
 
 /**
- * Current connection state of the WebSocket
- * @example
- * ```typescript
- * const ws = new WebSocket('ws://localhost:8080');
- * console.log(ws.state); // "disconnected"
- * ```
- */
-export type CurrentState = "connected" | "connecting" | "disconnected";
-
-/**
- * WebSocket configuration options
- * @example
- * ```typescript
- * const options: Options = {
- *   connectionTimeout: 5000,
- *   maxMessageQueued: 500,
- *   protocols: ['chat', 'superchat']
- * };
- * ```
- */
-export type Options = Bun.WebSocketOptions & {
-  /** Timeout in milliseconds for connection attempts (default: 10000) */
-  connectionTimeout?: number;
-  /** Maximum number of messages to queue when disconnected (default: 1000) */
-  maxMessageQueued?: number;
-  /** Maximum number of retry attempts (default: Infinity) */
-  maxRetries?: number;
-  /** close the websocket after retry attempts reached (default: false) "false" mean disconnect */
-  closeOnMaxRetries?: boolean;
-  /** Use exponential backoff for retries (default: false) */
-  useExponentialBackoff?: boolean;
-  /** Initial retry delay in milliseconds (default: 1000) */
-  retryDelay?: number;
-  /** Maximum retry delay in milliseconds (default: 30000) */
-  maxRetryDelay?: number;
-};
-
-/**
- * WebSocket events emitted by the client
- * @example
- * ```typescript
- * ws.listen((event) => {
- *   switch (event.type) {
- *     case 'connected':
- *       console.log('Connected to server');
- *       break;
- *     case 'message':
- *       console.log('Received:', event.data);
- *       break;
- *     case 'disconnected':
- *       console.log('Disconnected:', event.code, event.reason);
- *       break;
- *   }
- * });
- * ```
- */
-export type Event =
-  | { type: "connected" }
-  | { type: "connecting" }
-  | { type: "disconnected"; code?: number; reason?: string }
-  | { type: "message"; data: any };
-
-/**
  * WebSocket client with automatic reconnection and message queuing
  *
  * @example Basic usage
@@ -112,13 +49,31 @@ export type Event =
  * // Client automatically reconnects on connection loss
  * ```
  */
-export class WebSocket extends Stream<Event> {
-  protected _queue: any[];
+export class WebSocket extends Stream<WebSocket.Event> {
+  /**
+   * Queued messages waiting to be sent
+   *
+   * @example
+   * ```typescript
+   * ws.send('message 1');
+   * ws.send('message 2');
+   * console.log(ws.queue.length); // 2 (if not connected)
+   * ```
+   */
+  readonly queue: any[];
+  readonly url: string;
+  readonly options: WebSocket.Options & {
+    connectionTimeout: number;
+    maxMessageQueued: number;
+    maxRetries: number;
+    closeOnMaxRetries: boolean;
+    useExponentialBackoff: boolean;
+    retryDelay: number;
+    maxRetryDelay: number;
+  };
+  protected controller: AbortController;
   protected ws?: globalThis.WebSocket;
-  protected url: string;
-  protected options?: Options;
-  private controller: AbortController;
-  private retryCount = 0;
+  protected retryCount = 0;
   /**
    * Creates a new WebSocket client instance
    *
@@ -133,22 +88,39 @@ export class WebSocket extends Stream<Event> {
    * });
    * ```
    */
-  constructor(url: string, options?: Options) {
+  constructor(url: string, options?: WebSocket.Options) {
     super();
     this.url = url;
-    this.options = options;
-    this._queue = [];
+    this.queue = [];
     this.controller = new AbortController();
-
+    const {
+      connectionTimeout = 10000,
+      maxRetries = Infinity,
+      closeOnMaxRetries = false,
+      useExponentialBackoff = false,
+      retryDelay = 1000,
+      maxRetryDelay = 30000,
+      maxMessageQueued = 1000,
+    } = options ?? {};
+    this.options = {
+      ...options,
+      connectionTimeout,
+      maxRetries,
+      closeOnMaxRetries,
+      useExponentialBackoff,
+      retryDelay,
+      maxRetryDelay,
+      maxMessageQueued,
+    };
     this.pipe(filter({}, (_, event) => [event.type === "connected", {}])).listen(() => {
       if (!this.ws) return;
       this.retryCount = 0; // Reset retry count on successful connection
-      this._queue.forEach((msg) => this.send(msg));
-      this._queue.length = 0;
+      this.queue.forEach((msg) => this.send(msg));
+      this.queue.length = 0;
     }, this.controller.signal);
 
     this.pipe(filter({}, (_, event) => [event.type === "disconnected", {}]))
-      .pipe(map({}, (_, event) => [event as { type: "disconnected"; code?: number; reason?: string }, {}]))
+      .pipe(map({}, (_, event) => [event as WebSocket.DisconnectedEvent, {}]))
       .listen((event) => {
         if (!this.ws) return;
         this.ws = undefined;
@@ -161,14 +133,6 @@ export class WebSocket extends Stream<Event> {
           setTimeout(() => this.connect(), remoteDelay);
           return;
         }
-
-        const {
-          maxRetries = Infinity,
-          closeOnMaxRetries = false,
-          useExponentialBackoff = false,
-          retryDelay = 1000,
-          maxRetryDelay = 30000,
-        } = this.options ?? {};
 
         if (this.retryCount >= maxRetries) {
           closeOnMaxRetries ? this.close() : this.disconnect();
@@ -194,7 +158,7 @@ export class WebSocket extends Stream<Event> {
    * console.log(ws.state); // "connected" | "connecting" | "disconnected"
    * ```
    */
-  get state(): CurrentState {
+  get state(): WebSocket.CurrentState {
     switch (this.ws?.readyState) {
       case globalThis.WebSocket.OPEN:
         return "connected";
@@ -205,19 +169,6 @@ export class WebSocket extends Stream<Event> {
     }
   }
 
-  /**
-   * Queued messages waiting to be sent
-   *
-   * @example
-   * ```typescript
-   * ws.send('message 1');
-   * ws.send('message 2');
-   * console.log(ws.queue.length); // 2 (if not connected)
-   * ```
-   */
-  get queue(): any[] {
-    return this._queue;
-  }
   /**
    * Establishes WebSocket connection
    *
@@ -230,15 +181,18 @@ export class WebSocket extends Stream<Event> {
   connect(): void {
     if (this.state !== "disconnected") return;
 
-    const { connectionTimeout = 10000 } = this.options ?? {};
-
-    this.ws = new globalThis.WebSocket(this.url, this.options);
+    try {
+      this.ws = new globalThis.WebSocket(this.url, this.options);
+    } catch (error) {
+      this.push({ type: "error", url: this.url, error });
+      return;
+    }
 
     setTimeout(() => {
       if (this.state === "connecting") {
-        this.ws?.close(1013, connectionTimeout.toString());
+        this.ws?.close(1013, this.options.connectionTimeout.toString());
       }
-    }, connectionTimeout);
+    }, this.options.connectionTimeout);
 
     this.ws.onmessage = (msg) => this.push({ type: "message", data: msg.data });
     this.ws.onopen = () => this.push({ type: "connected" });
@@ -289,12 +243,85 @@ export class WebSocket extends Stream<Event> {
    * ```
    */
   send(data: string | ArrayBufferLike | Bun.ArrayBufferView<ArrayBufferLike>): void {
-    if (this.state === "connected" && this.ws) {
-      this.ws.send(data);
+    const self = this;
+    if (self.state === "connected" && self.ws) {
+      try {
+        self.ws.send(data);
+      } catch (error) {
+        pushToQueue();
+      }
     } else {
-      this._queue.push(data);
-      const { maxMessageQueued = 1000 } = this.options ?? {};
-      if (this._queue.length > maxMessageQueued) this._queue.shift();
+      pushToQueue();
+    }
+    function pushToQueue() {
+      self.queue.push(data);
+      if (self.queue.length > self.options.maxMessageQueued) self.queue.shift();
     }
   }
+}
+
+export namespace WebSocket {
+  /**
+   * Current connection state of the WebSocket
+   * @example
+   * ```typescript
+   * const ws = new WebSocket('ws://localhost:8080');
+   * console.log(ws.state); // "disconnected"
+   * ```
+   */
+  export type CurrentState = "connected" | "connecting" | "disconnected";
+
+  /**
+   * WebSocket configuration options
+   * @example
+   * ```typescript
+   * const options: Options = {
+   *   connectionTimeout: 5000,
+   *   maxMessageQueued: 500,
+   *   protocols: ['chat', 'superchat']
+   * };
+   * ```
+   */
+  export type Options = Bun.WebSocketOptions & {
+    /** Timeout in milliseconds for connection attempts (default: 10000) */
+    connectionTimeout?: number;
+    /** Maximum number of messages to queue when disconnected (default: 1000) */
+    maxMessageQueued?: number;
+    /** Maximum number of retry attempts (default: Infinity) */
+    maxRetries?: number;
+    /** close the websocket after retry attempts reached (default: false) "false" mean disconnect */
+    closeOnMaxRetries?: boolean;
+    /** Use exponential backoff for retries (default: false) */
+    useExponentialBackoff?: boolean;
+    /** Initial retry delay in milliseconds (default: 1000) */
+    retryDelay?: number;
+    /** Maximum retry delay in milliseconds (default: 30000) */
+    maxRetryDelay?: number;
+  };
+
+  export type ConnectedEvent = { type: "connected" };
+  export type ConnectingEvent = { type: "connecting" };
+  export type ErrorEvent = { type: "error"; url: string; error: unknown };
+  export type DisconnectedEvent = { type: "disconnected"; code?: number; reason?: string };
+  export type MessageEvent = { type: "message"; data: any };
+  /**
+   * WebSocket events emitted by the client
+   * @example
+   * ```typescript
+   * ws.listen((event) => {
+   *   switch (event.type) {
+   *     case 'connected':
+   *       console.log('Connected to server');
+   *       break;
+   *     case 'message':
+   *       console.log('Received:', event.data);
+   *       break;
+   *     case 'disconnected':
+   *       console.log('Disconnected:', event.code, event.reason);
+   *       break;
+   *   }
+   * });
+   * ```
+   */
+  export type Event = ConnectedEvent | ConnectingEvent | ErrorEvent | DisconnectedEvent | MessageEvent;
 }
