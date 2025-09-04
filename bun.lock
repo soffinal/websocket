@@ -8,6 +8,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
+        "typescript": "^5",
       },
       "peerDependencies": {
         "typescript": "^5",
@@ -15,7 +16,7 @@
     },
   },
   "packages": {
-    "@soffinal/stream": ["@soffinal/stream@0.2.1", "", { "peerDependencies": { "typescript": "^5.9.2" } }, "sha512-SkE50q+KPZZrzQnpOHRgV0mJuEPwIsV9CvfIoKd97+MBI2CXan/XVkfpOC5kJsePP1kKOz2r4pkBqRFFovAV2g=="],
+    "@soffinal/stream": ["@soffinal/stream@0.2.3", "", { "peerDependencies": { "typescript": "^5.9.2" } }, "sha512-B0xWaDsVa6/HxttZmKqD7BmsveQQzuEoY9wztwGIuLF+nsVW1DW2V0kOJZIwTxp1wP4iKPalje1uZaZ+cYv7fg=="],
 
     "@types/bun": ["@types/bun@1.2.21", "", { "dependencies": { "bun-types": "1.2.21" } }, "sha512-NiDnvEqmbfQ6dmZ3EeUO577s4P5bf4HCTXtI6trMc6f6RzirY5IrF3aIookuSpyslFzrnvv2lmEWv5HyC1X79A=="],
 
