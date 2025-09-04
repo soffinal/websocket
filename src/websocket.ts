@@ -22,7 +22,9 @@ import { Stream } from "@soffinal/stream";
  * });
  * ```
  */
-export class WebSocket<ENCODER extends WebSocket.Encoder<any, any>> extends Stream<WebSocket.Event<ENCODER>> {
+export class WebSocket<ENCODER extends WebSocket.Encoder<any, any> | undefined = undefined> extends Stream<
+  WebSocket.Event<ENCODER>
+> {
   /** Configuration options with defaults applied */
   readonly options: WebSocket.Options<ENCODER> & {
     maxConnectionTimeout: number;

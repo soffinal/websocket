@@ -10,29 +10,6 @@ A TypeScript WebSocket client focused on simplicity and developer experience. Fe
 
 Traditional WebSocket libraries require manual connection lifecycle management. **@soffinal/websocket** takes a different approach: **communication-first design** where connections are handled automatically, letting you focus on your application logic.
 
-### The Problem with Traditional WebSocket Clients
-
-```typescript
-// Manual connection management
-const ws = new WebSocket("ws://localhost:8080");
-ws.addEventListener("open", () => console.log("Connected"));
-ws.addEventListener("message", handler);
-ws.addEventListener("close", () => console.log("Disconnected"));
-ws.addEventListener("error", (error) => console.error("Error:", error));
-// Must remember to close
-ws.close();
-```
-
-### The @soffinal/websocket Solution
-
-```typescript
-// Simplified approach - communication-first
-const ws = new WebSocket("ws://localhost:8080");
-ws.listen(handler); // Connects automatically
-ws.send("Hello!"); // Just works, regardless of state
-// Disconnects automatically when no longer needed
-```
-
 ## 📦 Installation
 
 ```bash
