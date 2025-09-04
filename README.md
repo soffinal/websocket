@@ -1,97 +1,158 @@
 # @soffinal/websocket
 
-A revolutionary TypeScript WebSocket client with lazy connections, automatic resource management, type-safe encoding, and stream-based event handling.
+[![npm version](https://badge.fury.io/js/@soffinal%2Fwebsocket.svg)](https://badge.fury.io/js/@soffinal%2Fwebsocket)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Installation
+A TypeScript WebSocket client focused on simplicity and developer experience. Features lazy connections, automatic resource management, and intelligent reconnection strategies.
+
+## 🚀 Why @soffinal/websocket?
+
+Traditional WebSocket libraries require manual connection lifecycle management. **@soffinal/websocket** takes a different approach: **communication-first design** where connections are handled automatically, letting you focus on your application logic.
+
+### The Problem with Traditional WebSocket Clients
+
+```typescript
+// Manual connection management
+const ws = new WebSocket("ws://localhost:8080");
+ws.addEventListener("open", () => console.log("Connected"));
+ws.addEventListener("message", handler);
+ws.addEventListener("close", () => console.log("Disconnected"));
+ws.addEventListener("error", (error) => console.error("Error:", error));
+// Must remember to close
+ws.close();
+```
+
+### The @soffinal/websocket Solution
+
+```typescript
+// Simplified approach - communication-first
+const ws = new WebSocket("ws://localhost:8080");
+ws.listen(handler); // Connects automatically
+ws.send("Hello!"); // Just works, regardless of state
+// Disconnects automatically when no longer needed
+```
+
+## 📦 Installation
 
 ```bash
 npm install @soffinal/websocket
-# or
-yarn add @soffinal/websocket
-# or
-pnpm add @soffinal/websocket
-# or
-bun install @soffinal/websocket
 ```
 
-## Quick Start
+```bash
+yarn add @soffinal/websocket
+```
+
+```bash
+pnpm add @soffinal/websocket
+```
+
+```bash
+bun add @soffinal/websocket
+```
+
+## ⚡ Quick Start
 
 ```typescript
 import { WebSocket } from "@soffinal/websocket";
 
-// Create WebSocket - no connection yet (lazy)
+// Create WebSocket - no connection established yet (lazy)
 const ws = new WebSocket("ws://localhost:8080");
 
 // Connection starts automatically when you listen
-const unsubscribe = ws.listen((event) => {
+ws.listen((event) => {
   console.log("Event:", event);
 });
 
-// Or fire-and-forget sending (connects automatically)
-ws.send("Hello, server!");
-
-// Use async iteration
+// Or use async iteration
 for await (const event of ws) {
-  console.log("Event:", event);
   if (event.type === "connected") {
     ws.send("Hello, server!");
   }
 }
 
+// Fire-and-forget sending (connects automatically)
+ws.send("Hello, server!");
+
 // Manual cleanup (optional)
 ws.stop();
 
-// Or use automatic cleanup with 'using'
+// Modern automatic cleanup
 using ws2 = new WebSocket("ws://localhost:8080");
-ws2.send("Auto-cleanup!"); // Cleaned up automatically
+ws2.send("Auto-cleanup!"); // Cleaned up automatically at scope exit
 ```
 
-## Features
+## 🌟 Key Features
 
-- **🚀 Lazy Connections**: Connects automatically on first listener or send - no manual connection management
-- **🔄 Smart Reconnection**: Immediate reconnection with server-specified delays (respects code 1013)
-- **📦 Message Queuing**: Messages queued when disconnected, sent when reconnected
-- **🔒 Type-Safe Encoding**: Built-in JSON, binary, and custom serialization with full type safety
-- **🌊 Stream-Based Events**: Built on `@soffinal/stream` for powerful event composition
-- **🧹 Automatic Cleanup**: Resources cleaned up when no listeners remain
-- **🔧 Manual Control**: `stop()` method and `Symbol.dispose` for explicit cleanup
-- **🌐 Dynamic URLs**: Support for static URLs or async URL resolution functions
-- **⚡ Zero Configuration**: Perfect defaults, minimal required options
-- **🏃 Runtime Agnostic**: Works in Node.js, Bun, Deno, and browsers
+### 🔄 Lazy Connections
 
-## API Reference
+Connections are established only when needed for actual communication. No idle connections consuming resources.
 
-### WebSocket Class
+### 🧠 Intelligent Reconnection
 
-#### Constructor
+- **Immediate reconnection** for unexpected disconnections
+- **Server-specified delays** (respects WebSocket close code 1013)
+- **Configurable exponential backoff** for connection failures
+- **No artificial delays** - server handles rate limiting
+
+### 📦 Automatic Message Queuing
+
+Messages are automatically queued when disconnected and delivered when reconnected. No message loss.
+
+### 🔒 Type-Safe Encoding
+
+Built-in support for JSON, binary, and custom serialization with full TypeScript type safety.
+
+### 🌊 Stream-Based Architecture
+
+Built on `@soffinal/stream` for powerful event composition and filtering.
+
+### 🧹 Automatic Resource Management
+
+Resources are automatically cleaned up when no listeners remain. Supports modern `using` declarations.
+
+### 🌐 Dynamic URL Resolution
+
+Support for static URLs or async functions for authentication tokens and load balancing.
+
+### ⚡ Sensible Defaults
+
+Good defaults that work for most use cases. Minimal configuration required.
+
+### 🏃 Runtime Agnostic
+
+Works seamlessly in Node.js, Bun, Deno, and browsers.
+
+## 📚 Documentation
+
+### Constructor
 
 ```typescript
 new WebSocket(url: string, options?: WebSocket.Options)
 new WebSocket(url: () => string | Promise<string>, options?: WebSocket.Options)
 ```
 
-#### Options
+### Configuration Options
 
 ```typescript
-type Options<ENCODER extends Encoder<any, any> | undefined = undefined> = {
-  encoder?: ENCODER; // Custom encoder for serialization/deserialization
-  connectionTimeout?: number; // Default: 10000ms
-  maxMessageQueued?: number; // Default: 1000
-  // + additional Bun.WebSocketOptions when used in Bun
-};
+interface Options<ENCODER extends Encoder<any, any> | undefined = undefined> {
+  encoder?: ENCODER; // Custom encoder for serialization
+  maxConnectionTimeout?: number; // Max connection timeout (default: 10000ms)
+  initialRetryDelay?: number; // Initial retry delay (default: 100ms)
+  retryMultiplier?: number; // Retry delay multiplier (default: 2)
+  maxMessageQueued?: number; // Max queued messages (default: 1000)
+  maxIdle?: number; // Max idle time for send-only connections (default: Infinity)
+}
 ```
 
-#### Properties
+### Methods
 
-- `queue`: Array of queued messages waiting to be sent
-- `url`: WebSocket URL or URL function
-
-#### Methods
-
-- `listen(handler)`: Listen to events (starts connection automatically)
-- `send(data)`: Send data or queue it if disconnected (connects automatically if no listeners)
-- `stop()`: Stop connection and clear queue
-- `[Symbol.dispose]()`: Automatic cleanup for `using` declarations
+| Method               | Description                                                 |
+| -------------------- | ----------------------------------------------------------- |
+| `listen(handler)`    | Listen to events (starts connection automatically)          |
+| `send(data)`         | Send data or queue if disconnected (connects automatically) |
+| `stop()`             | Stop connection and clear message queue                     |
+| `[Symbol.dispose]()` | Automatic cleanup for `using` declarations                  |
 
 ### Events
 
@@ -100,71 +161,66 @@ type Event<ENCODER> =
   | { type: "connecting" }
   | { type: "connected" }
   | { type: "disconnected"; code?: number; reason?: string }
-  | { type: "message"; data: DecodedData }
-  | { type: "send"; data: OriginalData }
-  | { type: "error"; error: ErrorDetails };
+  | { type: "message"; data: ENCODER extends WebSocket.Encoder<any, infer Data> ? Data : any }
+  | { type: "send"; data: ENCODER extends WebSocket.Encoder<infer Data, any> ? Data : any }
+  | { type: "error"; error: ErrorObject };
 ```
 
 ### Error Types
 
-```typescript
-type ErrorDetails =
-  | { type: "url"; url: string }
-  | { type: "connection"; error: unknown }
-  | { type: "timeout"; timeout: number }
-  | { type: "message-encoding"; data: unknown }
-  | { type: "message-decoding"; data: string | ArrayBuffer | Uint8Array }
-  | { type: "send"; data: unknown };
-```
-
-### Encoder
+All errors include contextual information for debugging:
 
 ```typescript
-type Encoder<SEND_DATA = unknown, MSG_DATA = SEND_DATA> = {
-  encode: (data: SEND_DATA) => string | ArrayBuffer | Uint8Array | Promise<string | ArrayBuffer | Uint8Array>;
-  decode: (message: string | ArrayBuffer | Uint8Array) => MSG_DATA | Promise<MSG_DATA>;
+type ErrorEvent<ENCODER> = {
+  type: "error";
+  error:
+    | { type: "url"; url: string }
+    | { type: "connection"; error: unknown }
+    | { type: "timeout"; timeout: number }
+    | { type: "message-encoding"; data: ENCODER extends WebSocket.Encoder<infer Data, any> ? Data : unknown }
+    | { type: "message-decoding"; data: string | ArrayBuffer | Uint8Array }
+    | { type: "send"; data: ENCODER extends WebSocket.Encoder<infer Data, any> ? Data : unknown }
+    | { type: "queue-overflow"; data: ENCODER extends WebSocket.Encoder<infer Data, any> ? Data : unknown };
 };
 ```
 
-## Usage Examples
+## 💡 Usage Examples
 
-### Lazy Connection Pattern
+### Basic Real-Time Communication
 
 ```typescript
 import { WebSocket } from "@soffinal/websocket";
 
-// Create WebSocket - no connection established yet
 const ws = new WebSocket("ws://localhost:8080");
 
-// Connection starts automatically when you listen
 ws.listen((event) => {
   switch (event.type) {
     case "connecting":
-      console.log("Connecting to server...");
+      console.log("🔄 Connecting to server...");
       break;
     case "connected":
-      console.log("Connected to server");
+      console.log("✅ Connected to server");
       break;
     case "message":
-      console.log("Received:", event.data);
+      console.log("📨 Received:", event.data);
       break;
     case "send":
-      console.log("Sent:", event.data);
+      console.log("📤 Sent:", event.data);
       break;
     case "disconnected":
-      console.log("Disconnected:", event.code, event.reason);
+      console.log("❌ Disconnected:", event.code, event.reason);
       break;
     case "error":
-      console.error("Error:", event.error);
+      console.error("🚨 Error:", event.error);
       break;
   }
 });
 
-// Or connection starts automatically when you send
-ws.send("Hello, server!"); // Connects if no listeners exist
+// Send messages - connection handled automatically
+ws.send("Hello, server!");
 ```
 
-### Dynamic URLs
+### Dynamic URL Resolution
 
 ```typescript
 // Static URL
@@ -175,64 +231,83 @@ const ws2 = new WebSocket(async () => {
   const token = await getAuthToken();
   return `wss://api.example.com/ws?token=${token}`;
 });
-
-// Environment-based URL
-const ws3 = new WebSocket(() => {
-  return process.env.NODE_ENV === "production" ? "wss://prod-api.com/ws" : "ws://localhost:8080/ws";
-});
 ```
 
-### Advanced Configuration
+### Type-Safe Message Handling
 
 ```typescript
-type ApiMessage = { action: string; payload: any };
-type ApiResponse = { status: string; result: any };
+type SendMessage = { type: "chat"; message: string; userId: string };
+type ReceiveMessage = { type: "response"; data: string; timestamp: number };
 
-const ws = new WebSocket("wss://api.example.com/ws", {
-  encoder: WebSocket.getDefaultEncoder<ApiMessage, ApiResponse>(),
-  connectionTimeout: 5000,
-  maxMessageQueued: 500,
+const ws = new WebSocket("ws://localhost:8080", {
+  encoder: WebSocket.getDefaultEncoder<SendMessage, ReceiveMessage>(),
 });
 
+// Type-safe sending
+await ws.send({
+  type: "chat",
+  message: "Hello",
+  userId: "user123",
+}); // ✅ Fully typed
+
+// Type-safe receiving
 ws.listen((event) => {
-  console.log("Event:", event);
+  if (event.type === "message") {
+    console.log(event.data.timestamp); // ✅ TypeScript knows this exists
+  }
 });
 ```
 
-### Message Filtering with Streams
+### Custom Encoders
 
 ```typescript
-import { filter } from "@soffinal/stream";
+// Type-safe MessagePack encoder
+import * as msgpack from "@msgpack/msgpack";
 
-// Listen only to messages
-ws.pipe(filter((event) => event.type === "message")).listen((event) => {
-  console.log("Message received:", event.data);
+type SendData = { action: string; payload: any };
+type ReceiveData = { status: string; result: any };
+
+const ws = new WebSocket("ws://localhost:8080", {
+  encoder: {
+    encode: (data: SendData) => msgpack.encode(data),
+    decode: (buffer): ReceiveData => msgpack.decode(buffer),
+  },
 });
 
-// Listen only to connection events
-ws.pipe(filter((event) => ["connected", "connecting", "disconnected"].includes(event.type))).listen((event) => {
-  console.log("Connection state:", event.type);
+// Type-safe binary protocol with compression
+type Command = { cmd: string; args: string[] };
+type Response = { success: boolean; data: unknown };
+
+const binaryWs = new WebSocket("ws://localhost:8080", {
+  encoder: {
+    encode: async (data: Command) => await compressAndEncrypt(data),
+    decode: async (data): Promise<Response> => await decryptAndDecompress(data),
+  },
 });
+
+// Now fully type-safe
+ws.send({ action: "login", payload: { user: "john" } }); // ✅ Typed
+binaryWs.send({ cmd: "exec", args: ["ls", "-la"] }); // ✅ Typed
 ```
 
-### Resource Management
+### Stream-Based Event Filtering
 
 ```typescript
-// Automatic cleanup when no listeners
-const ws = new WebSocket("ws://localhost:8080");
-const unsubscribe1 = ws.listen(handler1);
-const unsubscribe2 = ws.listen(handler2);
+import { filter, map } from "@soffinal/stream";
 
-unsubscribe1(); // Still connected (has listeners)
-unsubscribe2(); // Automatically disconnects (no more listeners)
+// Listen only to chat messages
+ws.pipe(filter((event) => event.type === "message"))
+  .pipe(filter((event) => event.data.type === "chat"))
+  .listen((event) => {
+    console.log("Chat message:", event.data.message);
+  });
 
-// Manual cleanup
-ws.stop(); // Immediately stop and clear queue
-
-// Modern automatic cleanup
-using ws2 = new WebSocket("ws://localhost:8080");
-ws2.send("Hello!");
-// Automatically cleaned up when scope exits
+// Transform and filter connection events
+ws.pipe(filter((event) => ["connected", "disconnected"].includes(event.type)))
+  .pipe(map((event) => ({ status: event.type, timestamp: Date.now() })))
+  .listen((statusEvent) => {
+    updateConnectionStatus(statusEvent);
+  });
 ```
 
 ### Error Handling
@@ -242,99 +317,66 @@ ws.listen((event) => {
   if (event.type === "error") {
     switch (event.error.type) {
       case "url":
-        console.error("Invalid URL:", event.error.url);
+        console.error("❌ Invalid URL:", event.error.url);
         break;
       case "connection":
-        console.error("Connection failed:", event.error.error);
+        console.error("❌ Connection failed:", event.error.error);
         break;
       case "timeout":
-        console.error("Connection timeout:", event.error.timeout, "ms");
+        console.error("⏰ Connection timeout:", event.error.timeout, "ms");
         break;
       case "message-encoding":
-        console.error("Failed to encode:", event.error.data);
+        console.error("📤 Failed to encode:", event.error.data);
         break;
       case "message-decoding":
-        console.error("Failed to decode:", event.error.data);
+        console.error("📥 Failed to decode:", event.error.data);
         break;
       case "send":
-        console.error("Failed to send:", event.error.data);
+        console.error("📤 Failed to send:", event.error.data);
+        break;
+      case "queue-overflow":
+        console.error("📦 Message queue overflow:", event.error.data);
         break;
     }
   }
 });
 ```
 
-### Type-Safe Encoding
+### Resource Management
 
 ```typescript
-// JSON encoding with type safety
-type SendMessage = { type: "chat"; message: string };
-type ReceiveMessage = { type: "response"; data: string };
-
-const ws = new WebSocket("ws://localhost:8080", {
-  encoder: WebSocket.getDefaultEncoder<SendMessage, ReceiveMessage>(),
-});
-
-// Type-safe sending
-await ws.send({ type: "chat", message: "Hello" }); // ✓ Type-safe
-// ws.send({ invalid: "data" }); // ✗ TypeScript error
-
-// Type-safe receiving
-ws.listen((event) => {
-  if (event.type === "message") {
-    console.log(event.data.type); // ✓ Fully typed as ReceiveMessage
-  }
-});
-```
-
-### Custom Encoders
-
-```typescript
-// MessagePack encoder
-import * as msgpack from "@msgpack/msgpack";
-
-const ws = new WebSocket("ws://localhost:8080", {
-  encoder: {
-    encode: (data) => msgpack.encode(data),
-    decode: (buffer) => msgpack.decode(buffer),
-  },
-});
-
-// Custom binary protocol
-const binaryWs = new WebSocket("ws://localhost:8080", {
-  encoder: {
-    encode: async (cmd: Command) => await compressAndEncrypt(cmd),
-    decode: async (data: ArrayBuffer) => await decryptAndDecompress(data),
-  },
-});
-```
-
-### Raw Data (No Encoder)
-
-```typescript
-// Without encoder - raw WebSocket data
+// Connection lifecycle based on listeners, not sending
 const ws = new WebSocket("ws://localhost:8080");
 
-// String messages
-ws.send("Hello, server!");
-ws.send(JSON.stringify({ type: "chat", message: "Hello" }));
+// Sending keeps connection open until manually closed or if the maxIdle is set
+ws.send("message 1"); // Connects and stays open
+ws.send("message 2"); // Connection remains open
 
-// Binary data
-const buffer = new ArrayBuffer(8);
-ws.send(buffer);
+// Listeners control automatic cleanup
+const unsubscribe1 = ws.listen(handler1);
+const unsubscribe2 = ws.listen(handler2);
 
-// Typed arrays
-const uint8Array = new Uint8Array([1, 2, 3, 4]);
-ws.send(uint8Array);
+unsubscribe1(); // Still connected (has listeners)
+unsubscribe2(); // Automatically disconnects (no more listeners)
+
+// Manual cleanup
+ws.stop(); // Immediately stop and clear queue
+
+// Modern automatic cleanup with 'using'
+using ws2 = new WebSocket("ws://localhost:8080");
+ws2.send("Hello!"); // Connection stays open
+// Automatically cleaned up when scope exits
 ```
 
-## Smart Reconnection
+## 🔄 Intelligent Reconnection
 
-The client automatically handles reconnection with server-first logic:
+The client implements a reconnection strategy optimized for real-world scenarios:
+
+### Reconnection Logic
 
 - **Normal disconnection** (code 1000): No reconnection
 - **Server timeout** (code 1013 with numeric reason): Uses server-specified delay
-- **Other disconnections**: Immediate reconnection (server handles rate limiting)
+- **Other disconnections**: Immediate reconnection with exponential backoff on failures
 - **Philosophy**: Server protection is server responsibility, client optimizes for UX
 
 ### Server-Specified Delays
@@ -344,107 +386,69 @@ The client automatically handles reconnection with server-first logic:
 ws.listen((event) => {
   if (event.type === "disconnected") {
     if (event.code === 1013) {
-      console.log("Server requested delay:", event.reason, "ms");
+      console.log("⏳ Server requested delay:", event.reason, "ms");
       // Client automatically waits before reconnecting
     } else {
-      console.log("Reconnecting immediately");
+      console.log("🔄 Reconnecting immediately");
     }
   }
 });
 ```
 
-### Manual Connection Control
+### Exponential Backoff for Connection Failures
 
-```typescript
-// Stop all reconnection attempts
-ws.stop();
+When connection attempts fail (not disconnections), the client uses configurable exponential backoff:
 
-// Or handle disconnections manually
-ws.listen((event) => {
-  if (event.type === "disconnected") {
-    // Implement custom reconnection logic
-    console.log("Connection lost - handling manually");
-  }
-});
-```
+- **First attempt**: Immediate (0ms)
+- **First retry**: `initialRetryDelay` (default: 100ms)
+- **Second retry**: 200ms (100ms × 2)
+- **Third retry**: 400ms (200ms × 2)
+- **Fourth retry**: 800ms (400ms × 2)
+- **Subsequent retries**: Up to `maxConnectionTimeout` value
 
-## Message Queue Management
+Both `initialRetryDelay` and `retryMultiplier` are configurable for different use cases.
 
-Messages are automatically queued when disconnected and sent when reconnected:
+## 📊 Message Queue Management
+
+Messages are automatically queued when disconnected and delivered when reconnected:
 
 ```typescript
 const ws = new WebSocket("ws://localhost:8080");
 
-// These messages are queued if not connected
-ws.send("message 1");
-ws.send("message 2");
-ws.send("message 3");
+// These messages trigger connection and are queued until connected
+ws.send("message 1"); // Starts connection, queues message
+ws.send("message 2"); // Queued
+ws.send("message 3"); // Queued
 
-console.log(ws.queue.length); // 3 (if not connected)
+console.log(ws.queue.length); // 3 (while connecting)
 
-// Start listening - connection begins and queue is flushed
-ws.listen((event) => {
-  console.log("Event:", event);
-});
-
-// After connection: queue.length === 0
+// After connection established: queue is flushed automatically
 ```
 
-## Why This Approach is Revolutionary
+## 🔗 Dependencies
 
-### Traditional WebSocket Pattern
+- **[@soffinal/stream](https://github.com/soffinal/stream)**: Stream-based event handling foundation
+- **Runtime Support**: Node.js, Bun, Deno, and modern browsers
 
-```typescript
-// Manual lifecycle management
-const ws = new WebSocket("ws://localhost:8080");
-ws.connect(); // Must remember to connect
-ws.addEventListener("message", handler);
-// Must remember to disconnect
-ws.disconnect();
-```
+## 📄 License
 
-### Lazy Connection Pattern
+MIT License - see [LICENSE](LICENSE) file for details.
 
-```typescript
-// Communication-first approach
-const ws = new WebSocket("ws://localhost:8080");
-
-// Just communicate - connection handled automatically
-ws.listen(handler); // Connects when you want to listen
-ws.send("data"); // Connects when you want to send
-// Disconnects when no longer needed
-```
-
-**Revolutionary Benefits:**
-
-- **🧠 Intent-Based**: Connection reflects communication intent
-- **🚀 Zero Waste**: No idle connections consuming resources
-- **🎯 Fire-and-Forget**: `send()` just works, regardless of state
-- **🔄 Self-Healing**: Automatic reconnection without artificial delays
-- **🧹 Self-Cleaning**: Resources freed when no longer needed
-- **💭 Declarative**: Think "communicate" not "connect"
-
-## Philosophy
-
-This library embodies a fundamental shift in WebSocket client design:
-
-**Traditional**: "Manage connections to enable communication"
-**Revolutionary**: "Enable communication, connections are an implementation detail"
-
-Just like HTTP clients don't require manual connection management, WebSocket clients shouldn't either. The connection exists only when needed for actual communication.
-
-## Dependencies
-
-- `@soffinal/stream`: Stream-based event handling foundation
-- Works with any modern JavaScript runtime (Node.js, Bun, Deno, browsers)
-
-## Author
+## 👨‍💻 Author
 
 **soffinal**
 
 - GitHub: [@soffinal](https://github.com/soffinal)
 - Email: smari.sofiane@gmail.com
 
-## License
+## 🤝 Contributing
 
-MIT
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## 📈 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
+
+---
+
+**@soffinal/websocket** - Simplifying real-time communication with automatic connection management.
