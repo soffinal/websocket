@@ -33,7 +33,9 @@ export class WebSocket<ENCODER extends WebSocket.Encoder<any, any>> extends Stre
   };
 
   /** Message queue for storing messages when disconnected */
-  readonly queue = new Array();
+  readonly queue: (ENCODER extends WebSocket.Encoder<infer DATA, any>
+    ? DATA
+    : string | ArrayBufferLike | Bun.ArrayBufferView<ArrayBufferLike>)[] = new Array();
 
   /** The underlying WebSocket instance */
   protected ws: globalThis.WebSocket | undefined;
@@ -96,7 +98,7 @@ export class WebSocket<ENCODER extends WebSocket.Encoder<any, any>> extends Stre
           }
 
           while (self.queue.length) {
-            self.send(self.queue.shift());
+            self.send(self.queue.shift()!);
           }
           const event = await Promise.race([self.message(self.ws), self.close(self.ws), self.error(self.ws)]);
           if (event.type === "disconnected") {
@@ -163,7 +165,7 @@ export class WebSocket<ENCODER extends WebSocket.Encoder<any, any>> extends Stre
 
     self.queue.push(data);
     if (self.queue.length > self.options.maxMessageQueued) {
-      self.push({ type: "error", error: { type: "queue-overflow", data: self.queue.shift() } });
+      self.push({ type: "error", error: { type: "queue-overflow", data: self.queue.shift()! } });
     }
     if (!self.hasListeners) {
       if (!self.controller) self.controller = new AbortController();
