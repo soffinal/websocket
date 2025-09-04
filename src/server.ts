@@ -7,7 +7,11 @@ const server = Bun.serve({
     open(ws) {
       console.log(`client connected`);
     },
+    close(ws) {
+      console.log(`client disconnected`);
+    },
     message(ws, message) {
+      ws.send("sss");
       console.log(message);
     },
   },
